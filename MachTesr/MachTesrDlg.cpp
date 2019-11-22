@@ -67,7 +67,6 @@ void CMachTesrDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_LIST1, m_List);
-	DDX_Control(pDX, IDC_EDIT2, m_Mcu);
 	DDX_Control(pDX, IDC_EDIT1, m_Zynq);
 	DDX_Control(pDX, IDC_DISPLAY, m_Display);
 	DDX_Control(pDX, IDC_EDIT_NUM, m_Num);
@@ -83,7 +82,6 @@ BEGIN_MESSAGE_MAP(CMachTesrDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_INIT, &CMachTesrDlg::OnBnClickedInit)
 	ON_BN_CLICKED(IDC_CHANGE_ZYNQ, &CMachTesrDlg::OnBnClickedChangeZynq)
-	ON_BN_CLICKED(IDC_CHANGE_MCU, &CMachTesrDlg::OnBnClickedChangeMcu)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST1, &CMachTesrDlg::OnRclickList1)
 	ON_BN_CLICKED(IDC_TEST, &CMachTesrDlg::OnBnClickedTest)
 	ON_WM_TIMER()
@@ -129,7 +127,6 @@ BOOL CMachTesrDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	CFont EditFont;
 	EditFont.CreatePointFont(135,_T("宋体"));
-	m_Mcu.SetFont(&EditFont);
 	m_Zynq.SetFont(&EditFont);
 
 	GetDlgItem(IDC_TEST)->EnableWindow(false);
@@ -152,7 +149,7 @@ BOOL CMachTesrDlg::OnInitDialog()
 
 	m_List.SetFontHW(15,8);
 
-	this->SetWindowText(_T("FV01M整机测试软件(有后盖)V1.0.2"));
+	this->SetWindowText(_T("FV01M整机测试软件(有后盖)V1.1.0"));
 
 	Init();
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -211,17 +208,11 @@ void CMachTesrDlg::Init() {
 
 	m_List.DeleteAllItems();
 	/*读取上一次的配置*/
-	GetPrivateProfileString(_T("版本号"), _T("ZYNQ"), _T(""), StrZunq.GetBuffer(MAX_LENGTH), MAX_LENGTH, Path);
+	GetPrivateProfileString(_T("版本号"), _T("MAIN"), _T(""), StrZunq.GetBuffer(MAX_LENGTH), MAX_LENGTH, Path);
 	StrZunq.ReleaseBuffer();
-	m_List.InsertItem(0, _T("ZYNQ版本号"));
+	m_List.InsertItem(0, _T("主版本号"));
 	m_List.SetItemText(0, 1, StrZunq);
 	m_Zynq.SetWindowTextW(StrZunq);
-
-	GetPrivateProfileString(_T("版本号"), _T("MCU"), _T(""), StrMcu.GetBuffer(MAX_LENGTH), MAX_LENGTH, Path);
-	StrMcu.ReleaseBuffer();
-	m_List.InsertItem(1, _T("MCU版本号"));
-	m_List.SetItemText(1, 1, StrMcu);
-	m_Mcu.SetWindowTextW(StrMcu);
 
 	m_Check1.SetCheck(0);
 	m_Check2.SetCheck(0);
@@ -255,12 +246,18 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 {
 	CMachTesrDlg *dlg = (CMachTesrDlg*)AfxGetApp()->GetMainWnd();	//获取主窗口指针
 	CString CanZynq;
-	CString CanMcu;
 	dlg->m_Display.SetWindowTextW(_T("正在测试......"));
 
-	CanZynq = dlg->m_CanComm.GetVer(CAN_ZYNQ);
+
+	dlg->ComparedFrame();
+
+	if (!dlg->m_CanComm.Switch2Test(5, 5)) {
+		goto ERR;
+	}
+	dlg->m_CanComm.ClearCanBuffer();
+	CanZynq = dlg->m_CanComm.GetVer(MAJOR_VER_NUM);
 	if (CanZynq.IsEmpty()) {
-		AfxMessageBox(_T("ZYNQ版本检测失败\n"));
+		AfxMessageBox(_T("主版本号检测失败\n"));
 		goto ERR;
 	}
 	if (0 == dlg->StrZunq.CompareNoCase(CanZynq)) {
@@ -273,33 +270,18 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 		dlg->m_List.SetItemColor(2, 0, RGB(255, 0, 0));
 		dlg->m_List.SetItemText(0, 2, CanZynq);
 		dlg->m_List.RedrawWindow();
+		dlg->PassFlag = false;
 	}
-	CanMcu = dlg->m_CanComm.GetVer(CAN_MCU);
-	if (CanMcu.IsEmpty()) {
-		AfxMessageBox(_T("MCU版本检测失败\n"));
-		goto ERR;
-	}
-	if (0 == dlg->StrMcu.CompareNoCase(CanMcu)) {
-		dlg->m_List.SetItemColor(2, 1, RGB(0, 255, 0));
-		dlg->m_List.SetItemText(1, 2, CanMcu);
-		dlg->Invalidate();
+
+	if (dlg->PassFlag == false) {
+		dlg->SaveData = dlg->c_Num + _T(",Fail,") + CanZynq + _T(",") + dlg->SaveData;
 	}
 	else
 	{
-		dlg->m_List.SetItemColor(2, 1, RGB(255, 0, 0));
-		dlg->m_List.SetItemText(1, 2, CanMcu);
-		dlg->Invalidate();
+		dlg->SaveData = dlg->c_Num + _T(",Pass,") + CanZynq + _T(",") + dlg->SaveData;
 	}
 
-	dlg->SaveData.Append(CanZynq);
-	dlg->SaveData.Append(_T(","));
-	dlg->SaveData.Append(CanMcu);
-	dlg->SaveData.Append(_T(","));
-
-	dlg->ComparedFrame();
-
 	
-
 
 	/*保存结果*/
 
@@ -333,10 +315,11 @@ void CMachTesrDlg::ComparedFrame()
 	vector<int> vec;
 	vector<int>::iterator ret;
 
-	SetTimer(TIME_OUT, 20000, NULL);
+	SetTimer(TIME_OUT, 5000, NULL);
 	while (TimeOutFlag)
 	{
 		if (m_Count == 0) {
+			KillTimer(TIME_OUT);
 			break;
 		}
 		memset(&c_FrameData, 0, sizeof(FrameData));
@@ -412,11 +395,11 @@ void CMachTesrDlg::ComparedFrame()
 	}
 	if (uTemp != m_Count)
 	{
-		SaveData = StrNum[1] + _T(",fail,") + SaveData;
+		PassFlag = false;
 	}
 	else
 	{
-		SaveData = StrNum[1] + _T(",pass,") + SaveData;
+		PassFlag = false;
 	}
 	for (int i = 0; i < m_Count; i++)
 	{
@@ -424,8 +407,8 @@ void CMachTesrDlg::ComparedFrame()
 		if (ret == vec.end())
 		{
 			/*该值不存在*/
-			m_List.SetItemColor(2, (i + 2), RGB(255, 0, 0));
-			m_List.SetItemText((i + 2), 2, _T("fail"));
+			m_List.SetItemColor(2, (i + 1), RGB(255, 0, 0));
+			m_List.SetItemText((i + 1), 2, _T("fail"));
 			SaveData.Append(_T("fail,"));
 		}
 		else {
@@ -438,7 +421,7 @@ void CMachTesrDlg::ComparedFrame()
 void CMachTesrDlg::ResourceReset() {
 
 	m_CanComm.ClearCanBuffer();
-	INT Count = m_List.GetItemCount() - 2;
+	INT Count = m_List.GetItemCount() - 1;
 	if (m_FrameData != NULL)
 	{
 		free(m_FrameData);
@@ -483,7 +466,7 @@ void CMachTesrDlg::ResourceReset() {
 	CarLineFlag = false;
 	CarWarnFlag = false;
 	ObjNumbFlag = false;
-
+	PassFlag = true;
 }
 
 void CMachTesrDlg::OnBnClickedInit()
@@ -518,31 +501,14 @@ void CMachTesrDlg::OnBnClickedChangeZynq()
 	m_Zynq.GetWindowText(StrZunq);
 	if (StrZunq == _T(""))
 	{
-		GetPrivateProfileString(_T("版本号"), _T("ZYNQ"), _T(""), StrZunq.GetBuffer(MAX_LENGTH), MAX_LENGTH, Path);
+		GetPrivateProfileString(_T("版本号"), _T("MAIN"), _T(""), StrZunq.GetBuffer(MAX_LENGTH), MAX_LENGTH, Path);
 		StrZunq.ReleaseBuffer();
 		m_Zynq.SetWindowTextW(StrZunq);
 		AfxMessageBox(_T("请输入正确的版本号\n"));
 		return;
 	}
-	WritePrivateProfileString(_T("版本号"), _T("ZYNQ"), StrZunq, Path);
+	WritePrivateProfileString(_T("版本号"), _T("MAIN"), StrZunq, Path);
 	m_List.SetItemText(0, 1, StrZunq);
-}
-
-void CMachTesrDlg::OnBnClickedChangeMcu()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	m_Mcu.GetWindowText(StrMcu);
-	if (StrMcu == _T(""))
-	{
-		GetPrivateProfileString(_T("版本号"), _T("ZYNQ"), _T(""), StrMcu.GetBuffer(MAX_LENGTH), MAX_LENGTH, Path);
-		StrMcu.ReleaseBuffer();
-		m_Mcu.SetWindowTextW(StrMcu);
-		AfxMessageBox(_T("请输入正确的版本号\n"));
-		return;
-	}
-	WritePrivateProfileString(_T("版本号"), _T("MCU"), StrMcu, Path);
-	m_List.SetItemText(1, 1, StrMcu);
-
 }
 
 void CMachTesrDlg::OnRclickList1(NMHDR *pNMHDR, LRESULT *pResult)
@@ -684,7 +650,7 @@ void CMachTesrDlg::OnBnClickedCheck1()
 	else
 	{
 		WritePrivateProfileString(_T("测试项"), _T("车道线信息"), NULL, Path);
-		for (size_t i = 2; i < line; i++)
+		for (size_t i = 1; i < line; i++)
 		{
 			CString s = m_List.GetItemText(i, 0);
 			if (0 == s.CompareNoCase(_T("车道线信息")))
@@ -707,7 +673,7 @@ void CMachTesrDlg::OnBnClickedCheck2()
 	}
 	else {
 		WritePrivateProfileString(_T("测试项"), _T("车道线预警"), NULL, Path);
-		for (size_t i = 2; i < line; i++)
+		for (size_t i = 1; i < line; i++)
 		{
 			CString s = m_List.GetItemText(i, 0);
 			if (0 == s.CompareNoCase(_T("车道线预警")))
@@ -730,7 +696,7 @@ void CMachTesrDlg::OnBnClickedCheck3()
 	}
 	else {
 		WritePrivateProfileString(_T("测试项"), _T("目标信息"), NULL, Path);
-		for (size_t i = 2; i < line; i++)
+		for (size_t i = 1; i < line; i++)
 		{
 			CString s = m_List.GetItemText(i, 0);
 			if (0 == s.CompareNoCase(_T("目标信息")))
@@ -753,7 +719,7 @@ void CMachTesrDlg::OnBnClickedCheck4()
 	}
 	else {
 		WritePrivateProfileString(_T("测试项"), _T("目标预警"), NULL, Path);
-		for (size_t i = 2; i < line; i++)
+		for (size_t i = 1; i < line; i++)
 		{
 			CString s = m_List.GetItemText(i, 0);
 			if (0 == s.CompareNoCase(_T("目标预警")))
@@ -782,3 +748,4 @@ void CMachTesrDlg::OnOK()	//CexeDemoDlg为防止退出的对话框
 {
 
 }
+

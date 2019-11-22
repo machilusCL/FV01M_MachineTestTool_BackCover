@@ -258,6 +258,7 @@ CString  CCanComm::GetVer(BYTE Verfalg)
 	uint32_t uRet;
 	uint32_t uLen;
 	uint32_t len;
+	BYTE VAR[32];
 
 	VCI_CAN_OBJ RcvFrame;
 	VCI_CAN_OBJ Frame_Ver;
@@ -271,6 +272,7 @@ CString  CCanComm::GetVer(BYTE Verfalg)
 	Frame_Ver.Data[2] = 0x9;
 	Frame_Ver.Data[3] = Verfalg;
 	
+	memset(VAR,0,32);
 	CTime t9 = CTime::GetCurrentTime();
 	while (true)
 	{
@@ -301,35 +303,34 @@ CString  CCanComm::GetVer(BYTE Verfalg)
 		uLen = VCI_Receive(VCI_USBCAN2, 0, CAN_PRODUCT, &RcvFrame, 1);
 		if (uLen == 1) {
 			if (RcvFrame.ID == 0x759 && RcvFrame.Data[4] == Verfalg) {
-				len = RcvFrame.Data[1] & 0xFF;
-				for (size_t i = 0; i < 3; i++)
-				{
-					McuVer.Format(_T("%c"), RcvFrame.Data[i + 5]);
-					Ver.Append(McuVer);
-				}
+				len = ((RcvFrame.Data[0] & 0x0F) << 8) + (RcvFrame.Data[1] & 0xFF);
+
+				int i = 0;
+				memcpy(VAR, &RcvFrame.Data[5], 3);
+				i += 3;
 				int nCntFrame = (len - 6) / 7;
 				int nTemp = (len - 6) % 7;
 				while (nCntFrame) {					
 					memset(RcvFrame.Data, 0, 8);
 					uLen = VCI_Receive(VCI_USBCAN2, 0, CAN_PRODUCT, &RcvFrame, 1);
 					if (uLen == 1) {
-						for (size_t i = 0; i < 7; i++)
-						{
-							McuVer.Format(_T("%c"), RcvFrame.Data[i + 1]);
-							Ver.Append(McuVer);
-						}
+						memcpy(&VAR[i], &RcvFrame.Data[1], 7);
+						i += 7;
 
 					}
+					atrace("%d", nCntFrame);
 					nCntFrame--;
 				}
 				while(nTemp) {
+				
 					memset(RcvFrame.Data, 0, 8);
 					uLen = VCI_Receive(VCI_USBCAN2, 0, CAN_PRODUCT, &RcvFrame, 1);
 					if (uLen == 1) {
-						for (size_t i = 0; i < nTemp; i++)
-						{
-							McuVer.Format(_T("%c"), RcvFrame.Data[i + 1]);
-							Ver.Append(McuVer);
+						memcpy(&VAR[i], &RcvFrame.Data[1], nTemp);
+						CString var;
+						for (int x = 0; VAR[x] != 0x00; x++) {
+							var.Format(_T("%c"), VAR[x]);
+							Ver.Append(var);
 						}
 						break;
 					}
@@ -360,7 +361,6 @@ CString  CCanComm::GetVer(BYTE Verfalg)
 			}
 		}
 	}
-	
 	return Ver;
 }
 

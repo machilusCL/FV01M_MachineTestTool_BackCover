@@ -43,6 +43,7 @@ public:
 	bool CarWarnFlag = false;
 	bool ObjNumbFlag = false;
 
+	bool PassFlag = true;
 
 	CString SaveData;
 	CString SaveDataName;
@@ -53,7 +54,6 @@ public:
 public:
 	INT m_Count = 0;
 	CString c_Num;
-	CString StrMcu;
 	CString StrZunq;
 	CString StrTest;
 	CString StrId;
@@ -80,14 +80,12 @@ protected:
 public:
 
 	CListCtrlCl m_List;
-	CEdit m_Mcu;
 	CEdit m_Zynq;
 	CEdit m_Num;
 	CStatic m_Display;
 
 	afx_msg void OnBnClickedInit();
 	afx_msg void OnBnClickedChangeZynq();
-	afx_msg void OnBnClickedChangeMcu();
 	afx_msg void OnRclickList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnBnClickedTest();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);

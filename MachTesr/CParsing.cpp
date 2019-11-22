@@ -234,7 +234,7 @@ bool CParsing::FillingFrameData(FrameData *mFrameData) {
 	/*解析字符串,存入FrameData结构体*/
 	for (int i = 0; i < dlg->m_Count; i++)
 	{
-		CString temp = dlg->m_List.GetItemText(i + 2, 1);
+		CString temp = dlg->m_List.GetItemText(i + 1, 1);
 		INT length = temp.GetLength();
 		CString Temp_ID = temp.Mid(ID_START, COUNT);
 		CString Temp_Data = temp.Mid(DATA_START, length - DATA_START);
@@ -271,7 +271,7 @@ bool CParsing::FillingFrameData1(FrameData *mFrameData) {
 	/*解析字符串,存入FrameData结构体*/
 	for (int i = 0; i < dlg->m_Count; i++)
 	{
-		CString temp = dlg->m_List.GetItemText(i + 2, 1);
+		CString temp = dlg->m_List.GetItemText(i + 1, 1);
 		INT length = temp.GetLength();
 		CString Temp_ID = _T("0x") + temp.Mid(ID_START, COUNT);
 		INT x;

@@ -7,6 +7,8 @@
 
 #define CAN_ZYNQ	0x2
 #define CAN_MCU		0x3
+#define MAJOR_VER_NUM 0x21
+
 
 enum eTIMEOUT{
 	SWITCH_MODE = 0,

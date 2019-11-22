@@ -49,8 +49,7 @@ CString  SaveTestDate::CreatFile(CString hand)
 		}
 		fprintf(fb, "%s", "编号,");
 		fprintf(fb, "%s", "测试结果,");
-		fprintf(fb, "%s", "ZYNQ版本,");
-		fprintf(fb, "%s", "MCU版本,");
+		fprintf(fb, "%s", "主版本号,");
 		fprintf(fb, "%s", fhand);
 		fprintf(fb, "\n");
 		m_hand = hand;
@@ -98,8 +97,7 @@ int SaveTestDate::ChangeHead(CString SaveDataName, CString hand) {
 		printf("change the file!\n");
 		fprintf(fb, "%s", "编号,");
 		fprintf(fb, "%s", "测试结果,");
-		fprintf(fb, "%s", "ZYNQ版本,");
-		fprintf(fb, "%s", "MCU版本,");
+		fprintf(fb, "%s", "主版本号,");
 		fprintf(fb, "%s", fhand);
 		fprintf(fb, "\n");
 		m_hand = hand;
