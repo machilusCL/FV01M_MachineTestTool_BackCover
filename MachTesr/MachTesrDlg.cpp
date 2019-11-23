@@ -248,6 +248,10 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 	CString CanZynq;
 	dlg->m_Display.SetWindowTextW(_T("正在测试......"));
 
+	if (!dlg->m_CanComm.GetZynqWorkingStatus()) {
+		AfxMessageBox(_T("请给Zynq上电\n"));
+		goto ERR;
+	}
 
 	dlg->ComparedFrame();
 

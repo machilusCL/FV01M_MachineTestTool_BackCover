@@ -399,3 +399,56 @@ void  CCanComm::ClearCanBuffer() {
 	}
 
 }
+
+bool CCanComm::GetZynqWorkingStatus() {
+
+	uint32_t uRet;
+	uint32_t uLen;
+	atrace("Working Status");
+	VCI_CAN_OBJ RcvFrame;
+	VCI_CAN_OBJ FrameStatus;
+	FrameStatus.RemoteFlag = 0;
+	FrameStatus.ExternFlag = 0;
+	FrameStatus.SendType = 0;
+	FrameStatus.DataLen = 4;
+	FrameStatus.ID = 0x7DF;
+	FrameStatus.Data[0] = 0x3;
+	FrameStatus.Data[1] = 0x11;
+	FrameStatus.Data[2] = 0x9;
+	FrameStatus.Data[3] = 0x13;
+
+	CTime t9 = CTime::GetCurrentTime();
+	while (true)
+	{
+		uRet = VCI_Transmit(VCI_USBCAN2, 0, CAN_PRODUCT, &FrameStatus, 1);
+		
+		if (0 == uRet)
+		{
+			/*AfxMessageBox(_T("Can·¢ËÍÊ§°Ü\n"));
+			return NULL;*/
+		}
+		if (1 == uRet)
+		{
+			break;
+		}
+		CTime t8 = CTime::GetCurrentTime();
+		CTimeSpan span = t8 - t9;
+		LONGLONG iSec = span.GetTotalSeconds();
+		if (iSec >= 20) {
+			atrace("can rsp timeout.");
+			return false;
+		}
+		Sleep(1000);
+	}
+	
+	while (true)
+	{
+		uLen = VCI_Receive(VCI_USBCAN2, 0, CAN_PRODUCT, &RcvFrame, 1);
+		if (1 == uLen) {
+			if (RcvFrame.ID == 0x759 && RcvFrame.Data[1] == 0x51 && RcvFrame.Data[3] == 0x13) {
+				atrace("0x%x", RcvFrame.Data[4]);
+				return RcvFrame.Data[4];
+			}
+		}
+	}
+}

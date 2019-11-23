@@ -40,6 +40,8 @@ public:
 	bool Switch2Test(int timeout1, int timeout2);
 	bool UnInitCan();
 	void ClearCanBuffer();
+	bool GetZynqWorkingStatus();
+
 	CString  GetVer(BYTE Verfalg);
 	FrameData RecvFrame();
 
