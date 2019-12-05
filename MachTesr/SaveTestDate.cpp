@@ -29,11 +29,15 @@ CString  SaveTestDate::CreatFile(CString hand)
 	MakeSureDirectoryPathExists(m_csvPath);
 	m_csvPath.Append(_T("Result.csv"));
 
-	fpath = CStringA(m_csvPath.GetBuffer());
-	m_csvPath.ReleaseBuffer();
-	printf("%s\n", fpath);
-	const char *fhand = CStringA(hand.GetBuffer());
-	hand.ReleaseBuffer();
+	CStringA m_csvPath2;
+	CStringA hand2;
+	m_csvPath2 = m_csvPath;
+	hand2 = hand;
+
+	const char *fpath = m_csvPath2.GetBuffer();
+	const char *fhand = hand2.GetBuffer();
+	hand2.ReleaseBuffer();
+	m_csvPath2.ReleaseBuffer();
 	FILE *fb = fopen(fpath, "r");
 	if (fb) {
 
@@ -51,6 +55,7 @@ CString  SaveTestDate::CreatFile(CString hand)
 		fprintf(fb, "%s", "测试结果,");
 		fprintf(fb, "%s", "主版本号,");
 		fprintf(fb, "%s", fhand);
+		fprintf(fb, "%s", "写入SN码,");
 		fprintf(fb, "\n");
 		m_hand = hand;
 	}
@@ -62,10 +67,16 @@ CString  SaveTestDate::CreatFile(CString hand)
 
 int SaveTestDate::WriteToFile(CString SaveDataName, CString data){
 
-	const char *fpath1 = CStringA(SaveDataName.GetBuffer());
-	const char *fdata = CStringA(data.GetBuffer());
-	SaveDataName.ReleaseBuffer();
-	data.ReleaseBuffer();
+
+	CStringA m_csvPath2;
+	CStringA data2;
+	m_csvPath2 = SaveDataName;
+	data2 = data;
+	const char *fpath1 = m_csvPath2.GetBuffer();
+	const char *fdata = data2.GetBuffer();
+	data2.ReleaseBuffer();
+	m_csvPath2.ReleaseBuffer();
+
 	printf("%s\n", fpath1);
 	FILE *fb = fopen(fpath1, "a+");
 	if (!fb)
@@ -85,8 +96,15 @@ int SaveTestDate::WriteToFile(CString SaveDataName, CString data){
 
 int SaveTestDate::ChangeHead(CString SaveDataName, CString hand) {
 
-	const char *fhand = CStringA(hand);
-	const char *fpath1 = CStringA(SaveDataName.GetBuffer());
+	CStringA m_csvPath2;
+	CStringA hand2;
+	m_csvPath2 = SaveDataName;
+	hand2 = hand;
+	const char *fpath1 = m_csvPath2.GetBuffer();
+	const char *fhand = hand2.GetBuffer();
+	hand2.ReleaseBuffer();
+	m_csvPath2.ReleaseBuffer();
+
 	if (0 != m_hand.CompareNoCase(hand))
 	{
 		FILE *fb = fopen(fpath1, "a+");
@@ -99,6 +117,7 @@ int SaveTestDate::ChangeHead(CString SaveDataName, CString hand) {
 		fprintf(fb, "%s", "测试结果,");
 		fprintf(fb, "%s", "主版本号,");
 		fprintf(fb, "%s", fhand);
+		fprintf(fb, "%s", "写入SN码,");
 		fprintf(fb, "\n");
 		m_hand = hand;
 		fclose(fb);

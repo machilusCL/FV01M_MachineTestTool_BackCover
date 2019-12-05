@@ -8,6 +8,7 @@
 #define CAN_ZYNQ	0x2
 #define CAN_MCU		0x3
 #define MAJOR_VER_NUM 0x21
+#define SN_NUMBER 0x20
 
 
 enum eTIMEOUT{
@@ -37,13 +38,14 @@ public:
 
 	bool InitCan();
 	bool SendGetFrameCmd();
-	bool Switch2Test(int timeout1, int timeout2);
+	bool Switch2Test();
 	bool UnInitCan();
 	void ClearCanBuffer();
 	bool GetZynqWorkingStatus();
+	bool WriteSN(CString Number);
 
 	CString  GetVer(BYTE Verfalg);
-	FrameData RecvFrame();
+	FrameData RecvFrame(UINT nCANIndex);
 
 	UINT timecount = 0;
 };

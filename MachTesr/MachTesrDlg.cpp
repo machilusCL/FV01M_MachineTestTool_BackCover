@@ -74,6 +74,7 @@ void CMachTesrDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_CHECK2, m_Check2);
 	DDX_Control(pDX, IDC_CHECK3, m_Check3);
 	DDX_Control(pDX, IDC_CHECK4, m_Check4);
+	DDX_Control(pDX, IDC_COMBO1, m_cbCom);
 }
 
 BEGIN_MESSAGE_MAP(CMachTesrDlg, CDialogEx)
@@ -90,6 +91,7 @@ BEGIN_MESSAGE_MAP(CMachTesrDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CHECK2, &CMachTesrDlg::OnBnClickedCheck2)
 	ON_BN_CLICKED(IDC_CHECK3, &CMachTesrDlg::OnBnClickedCheck3)
 	ON_BN_CLICKED(IDC_CHECK4, &CMachTesrDlg::OnBnClickedCheck4)
+	ON_CBN_SELCHANGE(IDC_COMBO1, &CMachTesrDlg::OnCbnSelchangeCombo1)
 END_MESSAGE_MAP()
 
 
@@ -150,6 +152,9 @@ BOOL CMachTesrDlg::OnInitDialog()
 	m_List.SetFontHW(15,8);
 
 	this->SetWindowText(_T("FV01M整机测试软件(有后盖)V1.1.0"));
+
+	m_cbCom.InsertString(0, _T("通道1"));
+	m_cbCom.InsertString(1, _T("通道2"));
 
 	Init();
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
@@ -240,22 +245,20 @@ void CMachTesrDlg::Init() {
 			m_Check2.SetCheck(1);
 		}
 	}
+	int line = m_List.GetItemCount();
+	m_List.InsertItem(line, _T("写入SN码"));
+	
 }
 
 unsigned int CMachTesrDlg::TestThread(void* param)
 {
 	CMachTesrDlg *dlg = (CMachTesrDlg*)AfxGetApp()->GetMainWnd();	//获取主窗口指针
 	CString CanZynq;
+	CString SN;
 	dlg->m_Display.SetWindowTextW(_T("正在测试......"));
 
 	if (!dlg->m_CanComm.GetZynqWorkingStatus()) {
 		AfxMessageBox(_T("请给Zynq上电\n"));
-		goto ERR;
-	}
-
-	dlg->ComparedFrame();
-
-	if (!dlg->m_CanComm.Switch2Test(5, 5)) {
 		goto ERR;
 	}
 	dlg->m_CanComm.ClearCanBuffer();
@@ -265,7 +268,7 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 		goto ERR;
 	}
 	if (0 == dlg->StrZunq.CompareNoCase(CanZynq)) {
-		dlg->m_List.SetItemColor(2,0,RGB(0,255,0));
+		dlg->m_List.SetItemColor(2, 0, RGB(0, 255, 0));
 		dlg->m_List.SetItemText(0, 2, CanZynq);
 		dlg->m_List.RedrawWindow();
 	}
@@ -276,6 +279,41 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 		dlg->m_List.RedrawWindow();
 		dlg->PassFlag = false;
 	}
+	dlg->ComparedFrame();
+
+	if (!dlg->m_CanComm.Switch2Test()) {
+		goto ERR;
+	}
+	
+	
+	if(!dlg->m_CanComm.WriteSN(dlg->c_Num)) {
+
+		int line = dlg->m_List.GetItemCount() - 1;
+		dlg->m_List.SetItemColor(2, line, RGB(255, 0, 0));
+		dlg->m_List.SetItemText(line, 2, _T("fail"));
+		dlg->SaveData.Append(_T("fail,"));
+		dlg->m_List.RedrawWindow();
+		dlg->PassFlag = false;
+	}
+	else {
+		SN = dlg->m_CanComm.GetVer(SN_NUMBER);
+		if (0 == SN.CompareNoCase(dlg->c_Num)) {
+			int line = dlg->m_List.GetItemCount() - 1;
+			dlg->m_List.SetItemColor(2, line, RGB(0, 255, 0));
+			dlg->m_List.SetItemText(line, 2, SN);
+			dlg->m_List.RedrawWindow();
+			dlg->SaveData.Append(_T("pass,"));
+		}
+		else
+		{
+			int line = dlg->m_List.GetItemCount() - 1;
+			dlg->m_List.SetItemColor(2, line, RGB(255, 0, 0));
+			dlg->m_List.SetItemText(line, 2, _T("fail"));
+			dlg->m_List.RedrawWindow();
+			dlg->PassFlag = false;
+			dlg->SaveData.Append(_T("fail,"));
+		}
+	}
 
 	if (dlg->PassFlag == false) {
 		dlg->SaveData = dlg->c_Num + _T(",Fail,") + CanZynq + _T(",") + dlg->SaveData;
@@ -284,8 +322,6 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 	{
 		dlg->SaveData = dlg->c_Num + _T(",Pass,") + CanZynq + _T(",") + dlg->SaveData;
 	}
-
-	
 
 	/*保存结果*/
 
@@ -319,7 +355,7 @@ void CMachTesrDlg::ComparedFrame()
 	vector<int> vec;
 	vector<int>::iterator ret;
 
-	SetTimer(TIME_OUT, 5000, NULL);
+	SetTimer(TIME_OUT, 20000, NULL);
 	while (TimeOutFlag)
 	{
 		if (m_Count == 0) {
@@ -327,7 +363,7 @@ void CMachTesrDlg::ComparedFrame()
 			break;
 		}
 		memset(&c_FrameData, 0, sizeof(FrameData));
-		c_FrameData = m_CanComm.RecvFrame();
+		c_FrameData = m_CanComm.RecvFrame(nCANIndex);
 		if (0 == c_FrameData.ID) {
 			continue;
 		}
@@ -338,9 +374,9 @@ void CMachTesrDlg::ComparedFrame()
 				switch (c_FrameData.ID)
 				{
 				case 0x620:
-					if (c_FrameData.Data[0] > 0x00) {
-						m_List.SetItemColor(2, (i + 2), RGB(0, 255, 0));
-						m_List.SetItemText((i + 2), 2, _T("pass"));
+					if (c_FrameData.Data[0] >= 0x00) {
+						m_List.SetItemColor(2, (i + 1), RGB(0, 255, 0));
+						m_List.SetItemText((i + 1), 2, _T("pass"));
 						vec.push_back(i);
 						if (!ObjNumbFlag) {
 							uTemp++;
@@ -354,8 +390,8 @@ void CMachTesrDlg::ComparedFrame()
 				case 0x621:
 					Ret = ((c_FrameData.Data[0] & 0x06) >> 1);
 					if (0 == Ret) {
-						m_List.SetItemColor(2, (i + 2), RGB(0, 255, 0));
-						m_List.SetItemText((i + 2), 2, _T("pass"));
+						m_List.SetItemColor(2, (i + 1), RGB(0, 255, 0));
+						m_List.SetItemText((i + 1), 2, _T("pass"));
 						vec.push_back(i);
 						if (!CarWarnFlag) {
 							uTemp++;
@@ -367,8 +403,8 @@ void CMachTesrDlg::ComparedFrame()
 					Ret = (((c_FrameData.Data[0] & 0x80) >> 7) | ((c_FrameData.Data[1] & 0x80) >> 7));
 
 					if (!Ret) {
-						m_List.SetItemColor(2, (i + 2), RGB(0, 255, 0));
-						m_List.SetItemText((i + 2), 2, _T("pass"));
+						m_List.SetItemColor(2, (i + 1), RGB(0, 255, 0));
+						m_List.SetItemText((i + 1), 2, _T("pass"));
 						vec.push_back(i);
 						if (!CarLineFlag) {
 							uTemp++;
@@ -425,7 +461,17 @@ void CMachTesrDlg::ComparedFrame()
 void CMachTesrDlg::ResourceReset() {
 
 	m_CanComm.ClearCanBuffer();
-	INT Count = m_List.GetItemCount() - 1;
+	/*获取测试项全部信息*/
+	SaveDataHand.Empty();
+	m_AnalysisIni.GetSectionAllKey(Path, _T("测试项"));
+	int i = 0;
+	for (i = 0; i < m_AnalysisIni.gKeyName.nKeyNum; i++) {
+		SaveDataHand.Append(m_AnalysisIni.gKeyName.szKeyBuf[i]);
+		SaveDataHand = SaveDataHand + _T(",");
+	}
+
+	m_SaveTestDate.ChangeHead(SaveDataName, SaveDataHand);
+	INT Count = i;
 	if (m_FrameData != NULL)
 	{
 		free(m_FrameData);
@@ -454,16 +500,9 @@ void CMachTesrDlg::ResourceReset() {
 		m_List.SetItemText(i, 2, _T(""));
 		m_List.RedrawWindow();
 	}
-
-	/*获取测试项全部信息*/
-	SaveDataHand.Empty();
-	m_AnalysisIni.GetSectionAllKey(Path,_T("测试项"));
-	for (int i = 0; i < m_AnalysisIni.gKeyName.nKeyNum; i++) {
-		SaveDataHand.Append(m_AnalysisIni.gKeyName.szKeyBuf[i]);
-		SaveDataHand = SaveDataHand + _T(",");
-	}
-
-	m_SaveTestDate.ChangeHead(SaveDataName,SaveDataHand);
+	int line = m_List.GetItemCount() - 1;
+	m_List.SetItemText(line, 1, c_Num);
+	
 	//AfxMessageBox(SaveDataHand);
 	SaveData.Empty();
 
@@ -476,7 +515,23 @@ void CMachTesrDlg::ResourceReset() {
 void CMachTesrDlg::OnBnClickedInit()
 {
 	if (InitDoneFlag) {
-		AfxMessageBox(_T("已初始化\n"));
+		m_cbCom.EnableWindow(1);
+		m_CanComm.UnInitCan();
+		InitDoneFlag = false;
+		GetDlgItem(IDC_INIT)->SetWindowText(_T("初始化设备"));
+		return;
+	}
+	if (0 == strCBText.CompareNoCase(_T("通道1")))
+	{
+		nCANIndex = 0;
+	}
+	else if (0 == strCBText.CompareNoCase(_T("通道2")))
+	{
+		nCANIndex = 1;
+	}
+	else if (0 == strCBText.CompareNoCase(_T("")))
+	{
+		AfxMessageBox(_T("请选择接收通道\n"));
 		return;
 	}
 	if (!m_CanComm.InitCan()) {
@@ -492,6 +547,10 @@ void CMachTesrDlg::OnBnClickedInit()
 	m_SaveTestDate.m_hand = SaveDataHand;
 	SaveDataName = m_SaveTestDate.CreatFile(SaveDataHand);
 
+
+	m_cbCom.EnableWindow(0);
+
+	GetDlgItem(IDC_INIT)->SetWindowText(_T("关闭设备"));
 	AfxMessageBox(_T("初始化成功\n"));
 	printf("Init successful!\n");
 	GotoDlgCtrl(GetDlgItem(IDC_EDIT_NUM));
@@ -542,7 +601,7 @@ void CMachTesrDlg::RemoveLineData() {
 	if (nIdx < 0)
 	{
 	}
-	else if (0 == nIdx || 1 == nIdx)  {
+	else if (0 == nIdx)  {
 		AfxMessageBox(_T("当前内容不可删除"));
 	}
 	else
@@ -648,8 +707,8 @@ void CMachTesrDlg::OnBnClickedCheck1()
 	int line = m_List.GetItemCount();
 	if (1 == m_Check1.GetCheck()) {
 		WritePrivateProfileString(_T("测试项"), _T("车道线信息"), _T("ID:623"), Path);
-		m_List.InsertItem(line, _T("车道线信息"));
-		m_List.SetItemText(line, 1, _T("ID:623"));
+		m_List.InsertItem(line-1, _T("车道线信息"));
+		m_List.SetItemText(line-1, 1, _T("ID:623"));
 	}
 	else
 	{
@@ -672,8 +731,8 @@ void CMachTesrDlg::OnBnClickedCheck2()
 	int line = m_List.GetItemCount();
 	if (1 == m_Check2.GetCheck()) {
 		WritePrivateProfileString(_T("测试项"), _T("车道线预警"), _T("ID:621"), Path);
-		m_List.InsertItem(line, _T("车道线预警"));
-		m_List.SetItemText(line, 1, _T("ID:621"));
+		m_List.InsertItem(line-1, _T("车道线预警"));
+		m_List.SetItemText(line-1, 1, _T("ID:621"));
 	}
 	else {
 		WritePrivateProfileString(_T("测试项"), _T("车道线预警"), NULL, Path);
@@ -695,8 +754,8 @@ void CMachTesrDlg::OnBnClickedCheck3()
 	int line = m_List.GetItemCount();
 	if (1 == m_Check3.GetCheck()) {
 		WritePrivateProfileString(_T("测试项"), _T("目标信息"), _T("ID:620"), Path);
-		m_List.InsertItem(line, _T("目标信息"));
-		m_List.SetItemText(line, 1, _T("ID:620"));
+		m_List.InsertItem(line-1, _T("目标信息"));
+		m_List.SetItemText(line-1, 1, _T("ID:620"));
 	}
 	else {
 		WritePrivateProfileString(_T("测试项"), _T("目标信息"), NULL, Path);
@@ -718,8 +777,8 @@ void CMachTesrDlg::OnBnClickedCheck4()
 	int line = m_List.GetItemCount();
 	if (1 == m_Check4.GetCheck()) {
 		WritePrivateProfileString(_T("测试项"), _T("目标预警"), _T("ID:624"), Path);
-		m_List.InsertItem(line, _T("目标预警"));
-		m_List.SetItemText(line, 1, _T("ID:624"));
+		m_List.InsertItem(line-1, _T("目标预警"));
+		m_List.SetItemText(line-1, 1, _T("ID:624"));
 	}
 	else {
 		WritePrivateProfileString(_T("测试项"), _T("目标预警"), NULL, Path);
@@ -753,3 +812,12 @@ void CMachTesrDlg::OnOK()	//CexeDemoDlg为防止退出的对话框
 
 }
 
+
+void CMachTesrDlg::OnCbnSelchangeCombo1()
+{
+	// TODO: 在此添加控件通知处理程序代码
+
+	int nIndex = m_cbCom.GetCurSel();
+	m_cbCom.GetLBText(nIndex, strCBText);
+
+}

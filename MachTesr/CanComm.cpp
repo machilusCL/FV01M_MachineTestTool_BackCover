@@ -182,7 +182,7 @@ bool CCanComm::SendGetFrameCmd(){
 	return true;
 }
 
-bool CCanComm::Switch2Test(int timeout1, int timeout2){
+bool CCanComm::Switch2Test(){
 
 	uint32_t uRet;
 	uint32_t uLen;
@@ -198,7 +198,6 @@ bool CCanComm::Switch2Test(int timeout1, int timeout2){
 	Frame_Pic.Data[1] = 0x10;
 	Frame_Pic.Data[2] = 0x9;
 	Frame_Pic.Data[3] = 0x01;
-	CTime t3 = CTime::GetCurrentTime();
 	while (true)
 	{
 		uRet = VCI_Transmit(VCI_USBCAN2, 0, CAN_PRODUCT, &Frame_Pic, 1);
@@ -208,16 +207,6 @@ bool CCanComm::Switch2Test(int timeout1, int timeout2){
 			//return false;
 			break;
 		}
-		CTime t4 = CTime::GetCurrentTime();
-		CTimeSpan span1 = t4 - t3;
-		LONGLONG iSec1 = span1.GetTotalSeconds();
-		if (iSec1 >= timeout1) {
-			atrace("can rsp timeout.");
-			break;
-			//return false;
-		}
-		
-		Sleep(2000);
 	}
 
 	CTime t1 = CTime::GetCurrentTime();
@@ -364,20 +353,21 @@ CString  CCanComm::GetVer(BYTE Verfalg)
 	return Ver;
 }
 
-FrameData CCanComm::RecvFrame()
+FrameData CCanComm::RecvFrame(UINT nCANIndex)
 {
 	uint32_t uRet;
 	FrameData RecvData;
 	VCI_CAN_OBJ Frame_Recv;
-	
 	memset(&Frame_Recv.Data[0], 0, sizeof(BYTE)*8);
 	memset(&RecvData, 0, sizeof(FrameData));
-	uRet = VCI_Receive(VCI_USBCAN2, 0, CAN_NAVIGATE, &Frame_Recv, 1);
+	uRet = VCI_Receive(VCI_USBCAN2, 0, nCANIndex, &Frame_Recv, 1);
 	if (uRet == 1 ) {
 		RecvData.ID = Frame_Recv.ID;
 		RecvData.DataLen = Frame_Recv.DataLen;
 		memcpy(RecvData.Data, Frame_Recv.Data, Frame_Recv.DataLen);
+		atrace("通道%d: ID:0x%x  0x%x", nCANIndex + 1, RecvData.ID, RecvData.Data[0]);
 	}
+	
 	return RecvData;
 }
 
@@ -438,9 +428,10 @@ bool CCanComm::GetZynqWorkingStatus() {
 			atrace("can rsp timeout.");
 			return false;
 		}
-		Sleep(1000);
+		Sleep(5000);
 	}
-	
+
+	CTime t1 = CTime::GetCurrentTime();
 	while (true)
 	{
 		uLen = VCI_Receive(VCI_USBCAN2, 0, CAN_PRODUCT, &RcvFrame, 1);
@@ -450,5 +441,107 @@ bool CCanComm::GetZynqWorkingStatus() {
 				return RcvFrame.Data[4];
 			}
 		}
+		CTime t2 = CTime::GetCurrentTime();
+		CTimeSpan span = t2 - t1;
+		LONGLONG iSec = span.GetTotalSeconds();
+		if (iSec >= 5) {
+			atrace("can rsp timeout.");
+			return false;
+		}
 	}
+}
+
+bool CCanComm::WriteSN(CString Number){
+
+	int uRet;
+	int nCntFrame, nTemp;
+	int i, j, len;
+	CStringA Number2;
+	BYTE data[15];
+
+	Number2 = Number;
+	memcpy(data, Number2.GetBuffer(), Number2.GetLength());
+	len = sizeof(data) + 3;
+
+	VCI_CAN_OBJ Frame_Recv;
+	VCI_CAN_OBJ Frame_send;
+	Frame_send.RemoteFlag = 0;
+	Frame_send.ExternFlag = 0;
+	Frame_send.SendType = 0;
+	Frame_send.DataLen = 8;
+	Frame_send.ID = 0x7DF;
+
+	Frame_send.Data[0] = ((len >> 8 & 0x0F)) | 0x10;
+	Frame_send.Data[1] = len & 0xFF;
+	Frame_send.Data[2] = 0x12;
+	Frame_send.Data[3] = 0x09;
+	Frame_send.Data[4] = 0x20;
+
+	memcpy(&Frame_send.Data[5], &data, 3);
+	uRet = VCI_Transmit(VCI_USBCAN2, 0, CAN_PRODUCT, &Frame_send, 1);
+	if (0 == uRet)
+	{
+		//AfxMessageBox(_T("Can发送失败\n"));
+		return false;
+
+	}
+	atrace("开始发送");
+	nCntFrame = (len - 6) / 7;
+	nTemp = (len - 6) % 7;
+	for (i = 3, j = 1; j < (nCntFrame + 1); i += 7, j++) {
+		Frame_send.Data[0] = (j & 0x0F) | 0x20;
+		memcpy(&Frame_send.Data[1], &data[i], 7);
+		uRet = VCI_Transmit(VCI_USBCAN2, 0, CAN_PRODUCT, &Frame_send, 1);
+		if (0 == uRet)
+		{
+			return false;
+			AfxMessageBox(_T("Can发送失败\n"));
+		}
+		atrace("发送中。。。");
+	}
+	if (nTemp) {
+		memset(&Frame_send.Data[1], 0, 7);
+		Frame_send.Data[0] = (j & 0x0F) | 0x20;
+		memcpy(&Frame_send.Data[1], &data[i], nTemp);
+		Frame_send.DataLen = nTemp + 1;
+
+		uRet = VCI_Transmit(VCI_USBCAN2, 0, CAN_PRODUCT, &Frame_send, 1);
+		if (0 == uRet)
+		{
+			AfxMessageBox(_T("Can发送失败\n"));
+			return false;
+		}
+		atrace("发送完成!");
+	}
+	CTime t1 = CTime::GetCurrentTime();
+	while (true) {
+		len = VCI_Receive(VCI_USBCAN2, 0, CAN_PRODUCT, &Frame_Recv, 1);
+		if (len > 0) {
+			atrace("ID：0x%x 0x%x 0x%x 0x%x 0x%x 0x%x", Frame_Recv.ID, Frame_Recv.Data[0], Frame_Recv.Data[1], Frame_Recv.Data[2], Frame_Recv.Data[3],Frame_Recv.Data[4]);
+			if (Frame_Recv.ID == 0x759) {
+				int s = Frame_Recv.Data[1] == 0x52 ? 1 : 0;
+				int a = Frame_Recv.Data[2] == 0x09 ? 1 : 0;
+				int d = Frame_Recv.Data[3] == 0x20 ? 1 : 0;
+				if (s&&a&&d)
+				{
+					atrace("写入成功！");
+					return true;
+
+				}
+				else {
+					atrace("写入失败！");
+					return false;
+				}
+			}
+
+		}
+		CTime t2 = CTime::GetCurrentTime();
+		CTimeSpan span = t2 - t1;
+		LONGLONG iSec = span.GetTotalSeconds();
+		if (iSec >= 5) {
+			atrace("can rsp timeout.");
+			return false;
+		}
+	}
+
 }

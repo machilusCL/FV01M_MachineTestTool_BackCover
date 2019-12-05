@@ -103,4 +103,9 @@ public:
 	CString GetWorkDir();
 
 	afx_msg void OnOK();
+
+	afx_msg void OnCbnSelchangeCombo1();
+	CComboBox m_cbCom;
+	CString strCBText;
+	UINT nCANIndex;
 };
