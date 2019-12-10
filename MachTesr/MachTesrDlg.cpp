@@ -151,7 +151,7 @@ BOOL CMachTesrDlg::OnInitDialog()
 
 	m_List.SetFontHW(15,8);
 
-	this->SetWindowText(_T("FV01M整机测试软件(有后盖)V1.1.0"));
+	this->SetWindowText(_T("FV01M整机终检软件V1.2.1"));
 
 	m_cbCom.InsertString(0, _T("通道1"));
 	m_cbCom.InsertString(1, _T("通道2"));
@@ -329,8 +329,9 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 
 		AfxMessageBox(_T("结果保存失败\n"));
 	}
+
 	dlg->m_Num.SetWindowTextW(_T(""));
-	dlg->SetDlgItemText(IDC_CIN, _T("录入编码:"));
+	dlg->SetDlgItemText(IDC_CIN, _T("DUT SN码:"));
 	dlg->GotoDlgCtrl(dlg->GetDlgItem(IDC_EDIT_NUM));
 
 	dlg->m_Display.SetWindowTextW(_T("测试完成！"));
@@ -338,9 +339,9 @@ unsigned int CMachTesrDlg::TestThread(void* param)
 	return true;
 ERR:
 	dlg->m_Num.SetWindowTextW(_T(""));
-	dlg->SetDlgItemText(IDC_CIN, _T("录入编码:"));
+	dlg->SetDlgItemText(IDC_CIN, _T("DUT SN码:"));
 	dlg->GotoDlgCtrl(dlg->GetDlgItem(IDC_EDIT_NUM));
-
+	AfxMessageBox(_T("测试失败！"));
 	dlg->m_Display.SetWindowTextW(_T("测试失败！"));
 	dlg->TestRunFlag = false;
 	return false;

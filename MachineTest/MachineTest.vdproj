@@ -377,15 +377,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:MachineTest"
-        "ProductCode" = "8:{E374E759-F3CD-4692-987A-18F1BF20C3FA}"
-        "PackageCode" = "8:{E562B8BD-48DE-47F6-8AF6-8AC33985DA8D}"
+        "ProductCode" = "8:{8FD1EC41-BECA-45B0-A26E-B0160023DA19}"
+        "PackageCode" = "8:{1E4DB869-181C-42CC-AB33-99FDC3BDA22A}"
         "UpgradeCode" = "8:{249A5F42-620B-4964-BB91-3DE4098EEB04}"
         "AspNetVersion" = "8:"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.1.0"
+        "ProductVersion" = "8:1.2.1"
         "Manufacturer" = "8:Anngic"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -514,7 +514,7 @@
             }
             "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_66D88124432E483C9AFB8A34580424C0"
             {
-            "Name" = "8:MachineTest"
+            "Name" = "8:FV01M整机终检软件"
             "Arguments" = "8:"
             "Description" = "8:"
             "ShowCmd" = "3:1"
@@ -542,7 +542,7 @@
             }
             "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_F75CA87D117046B387EC829DF4162999"
             {
-            "Name" = "8:FV01M有后盖整机测试软件"
+            "Name" = "8:FV01M整机终检软件"
             "Arguments" = "8:"
             "Description" = "8:"
             "ShowCmd" = "3:1"
