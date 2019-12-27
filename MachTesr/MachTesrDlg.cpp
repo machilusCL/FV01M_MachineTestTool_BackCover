@@ -375,7 +375,7 @@ void CMachTesrDlg::ComparedFrame()
 				switch (c_FrameData.ID)
 				{
 				case 0x620:
-					if (c_FrameData.Data[0] >= 0x00) {
+					if (c_FrameData.Data[0] >  0x00) {
 						m_List.SetItemColor(2, (i + 1), RGB(0, 255, 0));
 						m_List.SetItemText((i + 1), 2, _T("pass"));
 						vec.push_back(i);
